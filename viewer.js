@@ -2,8 +2,22 @@ const CSV_URL = "./data/occupancy.csv";
 const REFRESH_MS = 5 * 60 * 1000;
 const HOUR_DOMAIN = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];
 
-const POOL_CAPACITY = 100;
-const GYM_CAPACITY = 150;
+const VENUES = [
+  {
+    column: "pool",
+    capacity: 100,
+    containerId: "pool-chart",
+    yLabel: "Swimmers ↑",
+    emptyLabel: "No pool data in this filter.",
+  },
+  {
+    column: "gym",
+    capacity: 150,
+    containerId: "gym-chart",
+    yLabel: "Gym users ↑",
+    emptyLabel: "No gym data yet — historical rows were pool-only. First scheduled run after deploy will populate this chart.",
+  },
+];
 
 const rootStyles = getComputedStyle(document.documentElement);
 const COLOR = {
@@ -23,7 +37,6 @@ async function loadData() {
   allRows = d3.csvParse(text, row => {
     const ts = row.timestamp_tw;
     const pool = parseInt(row.pool_qty, 10);
-    // Pool is required: drop the row if missing. Matches v1 behavior.
     if (!ts || !Number.isFinite(pool)) return null;
     const rawGym = parseInt(row.gym_qty, 10);
     // Empty/malformed gym_qty is expected for historical rows; null means
@@ -137,26 +150,12 @@ function render() {
     `${n} ${n === 1 ? "observation" : "observations"} · last updated ${new Date().toLocaleTimeString()}`;
   const status = document.getElementById("status");
   if (rows.length === 0) {
-    document.getElementById("pool-chart").replaceChildren();
-    document.getElementById("gym-chart").replaceChildren();
+    for (const v of VENUES) document.getElementById(v.containerId).replaceChildren();
     status.textContent = "No data yet. First poll will appear within 30 minutes.";
     return;
   }
   status.textContent = "";
-  renderChart(rows, {
-    column: "pool",
-    capacity: POOL_CAPACITY,
-    containerId: "pool-chart",
-    yLabel: "Swimmers ↑",
-    emptyLabel: "No pool data in this filter.",
-  });
-  renderChart(rows, {
-    column: "gym",
-    capacity: GYM_CAPACITY,
-    containerId: "gym-chart",
-    yLabel: "Gym users ↑",
-    emptyLabel: "No gym data yet — historical rows were pool-only. First scheduled run after deploy will populate this chart.",
-  });
+  for (const v of VENUES) renderChart(rows, v);
 }
 
 async function refresh() {
