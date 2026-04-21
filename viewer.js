@@ -1,33 +1,34 @@
 const CSV_URL = "./data/occupancy.csv";
 const REFRESH_MS = 5 * 60 * 1000;
 const HOUR_DOMAIN = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];
+
+const rootStyles = getComputedStyle(document.documentElement);
+const COLOR = {
+  blue: rootStyles.getPropertyValue("--blue").trim(),
+  terra: rootStyles.getPropertyValue("--terra").trim(),
+  muted: rootStyles.getPropertyValue("--muted").trim(),
+  ink: rootStyles.getPropertyValue("--ink").trim(),
+};
+
 let allRows = [];
 
 async function loadData() {
-  const r = await fetch(CSV_URL, { cache: "no-cache" });
+  const r = await fetch(CSV_URL);
   if (r.status === 404) { allRows = []; return; }
   if (!r.ok) throw new Error(`CSV fetch ${r.status}`);
   const text = await r.text();
-  const lines = text.split(/\r?\n/)
-    .map(l => l.trim())
-    .filter(l => l.length > 0)
-    .slice(1); // drop header
-  allRows = lines.flatMap(line => {
-    const comma = line.indexOf(",");
-    if (comma <= 0) return [];
-    const ts = line.slice(0, comma);
-    const qty = parseInt(line.slice(comma + 1), 10);
-    if (!Number.isFinite(qty)) return [];
-    // Hour-of-day: parse from the timestamp STRING (positions 11-13). Stays
-    // in Taiwan wall time regardless of viewer's local timezone.
+  allRows = d3.csvParse(text, row => {
+    const ts = row.timestamp_tw;
+    const qty = parseInt(row.use_qty, 10);
+    if (!ts || !Number.isFinite(qty)) return null;
+    // Parse hour from the timestamp string (positions 11-13) and weekday from
+    // the YYYY-MM-DD prefix so we stay in Taiwan wall time regardless of the
+    // viewer's local timezone.
     const hour = parseInt(ts.slice(11, 13), 10);
-    if (!Number.isFinite(hour)) return [];
-    // Day-of-week: Taiwan-local YYYY-MM-DD -> UTC date -> getUTCDay. Correct
-    // regardless of viewer's timezone.
+    if (!Number.isFinite(hour)) return null;
     const [y, m, dd] = ts.slice(0, 10).split("-").map(Number);
     const dow = new Date(Date.UTC(y, m - 1, dd)).getUTCDay();
-    const isWeekend = dow === 0 || dow === 6;
-    return [{ timestamp: ts, hour, use_qty: qty, isWeekend }];
+    return { timestamp: ts, hour, use_qty: qty, isWeekend: dow === 0 || dow === 6 };
   });
 
   // Spread dots that land on identical (hour, use_qty) coordinates so a stack
@@ -81,22 +82,24 @@ function render() {
     style: {
       fontFamily: '"IBM Plex Sans", system-ui, sans-serif',
       fontSize: 12,
-      color: "#1a1612",
+      color: COLOR.ink,
       background: "transparent",
     },
     marks: [
-      Plot.ruleY([100], { stroke: "#6b645c", strokeDasharray: "3 3", strokeOpacity: 0.6 }),
+      Plot.ruleY([100], { stroke: COLOR.muted, strokeDasharray: "3 3", strokeOpacity: 0.6 }),
+      // r: 0 suppresses boxY's default outlier dots — the dedicated Plot.dot
+      // layer below owns all point rendering.
       Plot.boxY(rows, {
         x: "hour",
         y: "use_qty",
-        stroke: "#6b645c",
+        stroke: COLOR.muted,
         strokeWidth: 1,
         r: 0,
       }),
       Plot.dot(rows, {
         x: "hour",
         y: d => d.use_qty + d.yOffset,
-        fill: d => d.isWeekend ? "#b44a28" : "#2a588a",
+        fill: d => d.isWeekend ? COLOR.terra : COLOR.blue,
         stroke: "white",
         strokeWidth: 0.5,
         fillOpacity: 0.85,
