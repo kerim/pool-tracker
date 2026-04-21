@@ -65,6 +65,15 @@ describe("ghGetCsv", () => {
     });
     await expect(ghGetCsv(TOKEN)).rejects.toThrow(/unexpected encoding/);
   });
+
+  it("sends Authorization and X-GitHub-Api-Version headers", async () => {
+    mockFetchOnce({ status: 404, body: {} });
+    await ghGetCsv(TOKEN);
+    const call = (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
+    const headers = (call[1] as RequestInit).headers as Record<string, string>;
+    expect(headers.Authorization).toBe(`Bearer ${TOKEN}`);
+    expect(headers["X-GitHub-Api-Version"]).toBe("2022-11-28");
+  });
 });
 
 describe("ghPutCsv", () => {
@@ -94,5 +103,14 @@ describe("ghPutCsv", () => {
       status: 422,
       snippet: expect.stringMatching(/^y{200}$/),
     });
+  });
+
+  it("sends Authorization and X-GitHub-Api-Version headers", async () => {
+    mockFetchOnce({ status: 200, body: {} });
+    await ghPutCsv(TOKEN, "hello", null, "test");
+    const call = (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
+    const headers = (call[1] as RequestInit).headers as Record<string, string>;
+    expect(headers.Authorization).toBe(`Bearer ${TOKEN}`);
+    expect(headers["X-GitHub-Api-Version"]).toBe("2022-11-28");
   });
 });

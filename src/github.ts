@@ -1,13 +1,4 @@
-import {
-  CSV_HEADER,
-  CSV_PATH,
-  FAILURE_LABEL,
-  ISSUE_TITLE,
-  OWNER,
-  REPO,
-} from "./constants.js";
-import { lastRowTimestamp } from "./csv.js";
-import { taiwanIsoNow } from "./time.js";
+import { CSV_PATH, OWNER, REPO } from "./constants.js";
 
 export const GH_CONTENTS = `https://api.github.com/repos/${OWNER}/${REPO}/contents/${CSV_PATH}`;
 
@@ -90,8 +81,3 @@ export async function ghPutCsv(
 }
 
 // appendRow and reportFailure added in Tasks 8 and 9.
-
-// Re-exports so consumers don't need multiple import sites:
-export { CSV_HEADER, CSV_PATH, FAILURE_LABEL, ISSUE_TITLE, OWNER, REPO };
-export { lastRowTimestamp };
-export { taiwanIsoNow };
