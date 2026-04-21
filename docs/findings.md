@@ -49,3 +49,12 @@ Stuff that would have saved iteration time if known upfront. Kept terse on purpo
 
 - When two observations share identical `(hour, use_qty)`, dots render at the same pixel and read as one. With data that lands on round integers and a schedule that visits the same hours repeatedly, this happens a lot.
 - Fix: pre-compute per-row `yOffset` in `loadData` by grouping by `(hour, use_qty)` and spreading the group across ±0.4 swimmers. Dots remain visually near their true value (always within 0.4) and the tooltip shows the exact integer.
+- When rendering multiple charts (pool + gym) that share the same row objects, do NOT precompute jitter once on the row — each chart needs its own `(hour, column_value)` grouping. Keep offsets in a per-chart `WeakMap` keyed by row object so charts don't clobber each other's offsets.
+
+## Multi-venue expansion
+
+- The source page's `this.venueInfo` array carries every venue at that URL (pool + gym in our case) in a single payload. Adding a second tracked venue needed zero changes to the fetch layer — only parser output, CSV schema, and renderer.
+- CSV schema migration while a 30-min cron is live is the riskiest moment. If the old Worker runs against a migrated file (or vice versa) for even one tick, the result is mixed-schema silent corruption. Procedure: commit the migrated CSV + new Worker code in the same commit, then `wrangler deploy` within the first 25 minutes. Keep the `appendRow` dedup guard column-agnostic (first-comma split) so it survives schema transitions.
+- Secondary venues should be soft-fail: if the gym entry is absent or malformed on a given fetch, write an empty CSV field rather than throwing. Throwing would kill the pool data collection that run — and alert spam for a non-primary metric is worse than missing one gym observation.
+- Rollback from a schema migration must be atomic too. Reverting the Worker code without also reverting the CSV header leaves the next cron fire appending a 2-field row to a 3-column CSV. One-liner we captured: `awk -F',' 'NR==1{print "timestamp_tw,use_qty"} NR>1{print $1","$2}' data/occupancy.csv`.
+- Empty-state matters per-chart, not just overall. A gym chart rendered from pre-migration rows has zero observations even though `allRows.length > 0`, so a page-level "no data" message doesn't fire. Each `renderChart` needs its own empty-state placeholder — otherwise the section renders as just a heading, which looks broken.
