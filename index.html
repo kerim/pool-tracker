@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Pool Occupancy — Wanhua Sports Center</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 900px; margin: 2em auto; padding: 0 1em; }
+    #meta { color: #666; font-size: 0.9em; margin-bottom: 1em; }
+    #filter { margin: 1em 0; }
+    #chart { min-height: 400px; }
+    #status { color: #a00; }
+  </style>
+</head>
+<body>
+  <h1>Pool Occupancy by Hour of Day</h1>
+  <div id="meta"></div>
+  <div id="filter">
+    Show:
+    <label><input type="radio" name="days" value="all" checked> All days</label>
+    <label><input type="radio" name="days" value="weekday"> Weekdays</label>
+    <label><input type="radio" name="days" value="weekend"> Weekends</label>
+  </div>
+  <div id="chart"></div>
+  <div id="status"></div>
+  <script src="https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6/dist/plot.umd.min.js"></script>
+  <script src="viewer.js"></script>
+</body>
+</html>
