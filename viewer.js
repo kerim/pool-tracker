@@ -48,7 +48,12 @@ function render() {
     return;
   }
   const plot = Plot.plot({
-    x: { label: "Hour of day (Taiwan)", domain: [5.5, 22.5] },
+    x: {
+      label: "Hour of day (Taiwan)",
+      domain: [5.5, 22.5],
+      ticks: [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22],
+      tickFormat: d => String(d).padStart(2, "0"),
+    },
     y: { label: "Swimmers", grid: true, domain: [0, 100] },
     marks: [
       Plot.boxY(rows, { x: "hour", y: "use_qty" }),
@@ -56,8 +61,8 @@ function render() {
         x: "hour",
         y: "use_qty",
         fill: d => d.isWeekend ? "#d62728" : "#1f77b4",
-        fillOpacity: 0.35,
-        r: 2,
+        fillOpacity: 0.6,
+        r: 3,
         dx: () => (Math.random() - 0.5) * 0.6,
       }),
     ],
