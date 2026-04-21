@@ -1,5 +1,6 @@
 const CSV_URL = "./data/occupancy.csv";
 const REFRESH_MS = 5 * 60 * 1000;
+const HOUR_DOMAIN = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];
 let allRows = [];
 
 async function loadData() {
@@ -41,35 +42,61 @@ function render() {
   const rows = filteredRows();
   const chart = document.getElementById("chart");
   chart.replaceChildren();
+  const n = allRows.length;
   document.getElementById("meta").textContent =
-    `${allRows.length} observations · last updated ${new Date().toLocaleTimeString()}`;
+    `${n} ${n === 1 ? "observation" : "observations"} · last updated ${new Date().toLocaleTimeString()}`;
   if (rows.length === 0) {
     chart.textContent = "No data yet. First poll will appear within 30 minutes.";
     return;
   }
   const plot = Plot.plot({
     x: {
-      label: "Hour of day (Taiwan)",
-      domain: [5.5, 22.5],
-      ticks: [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22],
+      type: "band",
+      domain: HOUR_DOMAIN,
+      label: "Hour of day — Taiwan",
       tickFormat: d => String(d).padStart(2, "0"),
     },
-    y: { label: "Swimmers", grid: true, domain: [0, 100] },
+    y: {
+      label: "Swimmers ↑",
+      grid: true,
+      domain: [0, 100],
+    },
+    style: {
+      fontFamily: '"IBM Plex Sans", system-ui, sans-serif',
+      fontSize: 12,
+      color: "#1a1612",
+      background: "transparent",
+    },
     marks: [
-      Plot.boxY(rows, { x: "hour", y: "use_qty" }),
+      Plot.ruleY([100], { stroke: "#6b645c", strokeDasharray: "3 3", strokeOpacity: 0.6 }),
+      Plot.boxY(rows, {
+        x: "hour",
+        y: "use_qty",
+        stroke: "#6b645c",
+        strokeWidth: 1,
+        r: 0,
+      }),
       Plot.dot(rows, {
         x: "hour",
         y: "use_qty",
-        fill: d => d.isWeekend ? "#d62728" : "#1f77b4",
-        fillOpacity: 0.6,
-        r: 3,
-        dx: () => (Math.random() - 0.5) * 0.6,
+        fill: d => d.isWeekend ? "#b44a28" : "#2a588a",
+        stroke: "white",
+        strokeWidth: 0.5,
+        fillOpacity: 0.85,
+        r: 5,
+        tip: true,
+        channels: {
+          When: "timestamp",
+          Day: d => d.isWeekend ? "Weekend" : "Weekday",
+        },
       }),
     ],
-    width: 860,
-    height: 460,
-    marginLeft: 50,
-    marginBottom: 50,
+    width: 900,
+    height: 480,
+    marginLeft: 54,
+    marginBottom: 54,
+    marginTop: 20,
+    marginRight: 20,
   });
   chart.append(plot);
 }
