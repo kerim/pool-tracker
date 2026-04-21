@@ -251,4 +251,10 @@ describe("reportFailure", () => {
     );
     await expect(reportFailure(TOKEN, "boom")).resolves.toBeUndefined();
   });
+
+  it("does not throw when comment POST returns non-ok", async () => {
+    mockFetchOnce({ status: 200, body: [{ number: 42 }] });
+    mockFetchOnce({ status: 403, body: "forbidden" });
+    await expect(reportFailure(TOKEN, "boom")).resolves.toBeUndefined();
+  });
 });

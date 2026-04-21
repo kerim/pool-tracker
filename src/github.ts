@@ -121,11 +121,14 @@ export async function reportFailure(
     const when = taiwanIsoNow();
     // errorMessage already has GH response bodies truncated to 200 chars
     // (by GhHttpError), so it's safe to put in a public issue.
-    const body = `\`${when}\`\n\n\`\`\`\n${errorMessage}\n\`\`\``;
+    // 4-backtick fence: if errorMessage ever contains a 3-backtick sequence,
+    // it won't escape the code block and render as markdown (@mention
+    // injection, etc.) in the public issue body.
+    const body = `\`${when}\`\n\n\`\`\`\`\n${errorMessage}\n\`\`\`\``;
 
     const listUrl =
       `https://api.github.com/repos/${OWNER}/${REPO}/issues?` +
-      `state=open&labels=${FAILURE_LABEL}&per_page=1`;
+      `state=open&labels=${encodeURIComponent(FAILURE_LABEL)}&per_page=1`;
     const list = await fetch(listUrl, { headers: ghHeaders(token) });
     if (!list.ok) return;
     const issues = (await list.json()) as { number: number }[];
