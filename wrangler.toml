@@ -2,6 +2,12 @@ name = "pool-tracker"
 main = "src/worker.ts"
 compatibility_date = "2026-04-21"
 
+[observability]
+enabled = true
+
+[observability.logs]
+invocation_logs = true
+
 # Pool hours 06:00-22:00 Taiwan (UTC+8) = 22:00 UTC prev day through 14:00 UTC.
 # 33 polls/day total. Every 30 min, inclusive of opening and closing times.
 [triggers]
