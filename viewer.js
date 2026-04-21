@@ -29,6 +29,23 @@ async function loadData() {
     const isWeekend = dow === 0 || dow === 6;
     return [{ timestamp: ts, hour, use_qty: qty, isWeekend }];
   });
+
+  // Spread dots that land on identical (hour, use_qty) coordinates so a stack
+  // of N observations reads as N visible marks. Offsets stay under ±0.4
+  // swimmers so they don't misrepresent the integer count.
+  const stackSize = new Map();
+  for (const r of allRows) {
+    const key = `${r.hour},${r.use_qty}`;
+    stackSize.set(key, (stackSize.get(key) ?? 0) + 1);
+  }
+  const stackSeen = new Map();
+  for (const r of allRows) {
+    const key = `${r.hour},${r.use_qty}`;
+    const n = stackSize.get(key);
+    const i = stackSeen.get(key) ?? 0;
+    stackSeen.set(key, i + 1);
+    r.yOffset = n > 1 ? ((i - (n - 1) / 2) / (n - 1)) * 0.8 : 0;
+  }
 }
 
 function filteredRows() {
@@ -78,7 +95,7 @@ function render() {
       }),
       Plot.dot(rows, {
         x: "hour",
-        y: "use_qty",
+        y: d => d.use_qty + d.yOffset,
         fill: d => d.isWeekend ? "#b44a28" : "#2a588a",
         stroke: "white",
         strokeWidth: 0.5,
