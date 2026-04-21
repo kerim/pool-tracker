@@ -48,7 +48,7 @@ describe("ghGetCsv", () => {
   });
 
   it("decodes base64 content and returns sha", async () => {
-    const contentRaw = "timestamp_tw,use_qty\n2026-04-21T06:00+08:00,3\n";
+    const contentRaw = "timestamp_tw,pool_qty,gym_qty\n2026-04-21T06:00+08:00,3,17\n";
     const encoded = Buffer.from(contentRaw, "utf8").toString("base64");
     mockFetchOnce({
       status: 200,
@@ -140,61 +140,80 @@ describe("appendRow", () => {
   it("creates the CSV on first run (no sha)", async () => {
     mockGet(null);
     mockPut(201);
-    await appendRow(TOKEN, "2026-04-21T06:00+08:00,3\n");
+    await appendRow(TOKEN, "2026-04-21T06:00+08:00,3,17\n");
     const calls = (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls;
     expect(calls).toHaveLength(2);
     const put = calls[1][1] as RequestInit;
     const body = JSON.parse(put.body as string);
     expect(body.sha).toBeUndefined();
     expect(Buffer.from(body.content, "base64").toString("utf8"))
-      .toBe("timestamp_tw,use_qty\n2026-04-21T06:00+08:00,3\n");
+      .toBe("timestamp_tw,pool_qty,gym_qty\n2026-04-21T06:00+08:00,3,17\n");
   });
 
-  it("appends to existing CSV with sha", async () => {
-    mockGet("timestamp_tw,use_qty\n2026-04-21T06:00+08:00,3\n", "shaA");
+  it("appends a gym-present row to existing CSV with sha", async () => {
+    mockGet("timestamp_tw,pool_qty,gym_qty\n2026-04-21T06:00+08:00,3,17\n", "shaA");
     mockPut(200);
-    await appendRow(TOKEN, "2026-04-21T06:30+08:00,5\n");
+    await appendRow(TOKEN, "2026-04-21T06:30+08:00,5,19\n");
     const calls = (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls;
     const put = calls[1][1] as RequestInit;
     const body = JSON.parse(put.body as string);
     expect(body.sha).toBe("shaA");
     expect(Buffer.from(body.content, "base64").toString("utf8"))
-      .toBe("timestamp_tw,use_qty\n2026-04-21T06:00+08:00,3\n2026-04-21T06:30+08:00,5\n");
+      .toBe("timestamp_tw,pool_qty,gym_qty\n2026-04-21T06:00+08:00,3,17\n2026-04-21T06:30+08:00,5,19\n");
+  });
+
+  it("appends a gym-absent row (trailing empty field) to existing CSV", async () => {
+    mockGet("timestamp_tw,pool_qty,gym_qty\n2026-04-21T06:00+08:00,3,17\n", "shaA");
+    mockPut(200);
+    await appendRow(TOKEN, "2026-04-21T06:30+08:00,5,\n");
+    const calls = (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls;
+    const put = calls[1][1] as RequestInit;
+    const body = JSON.parse(put.body as string);
+    expect(Buffer.from(body.content, "base64").toString("utf8"))
+      .toBe("timestamp_tw,pool_qty,gym_qty\n2026-04-21T06:00+08:00,3,17\n2026-04-21T06:30+08:00,5,\n");
   });
 
   it("skips append if last row's timestamp matches the new row (dedup)", async () => {
-    mockGet("timestamp_tw,use_qty\n2026-04-21T06:00+08:00,3\n", "shaA");
-    await appendRow(TOKEN, "2026-04-21T06:00+08:00,3\n");
+    mockGet("timestamp_tw,pool_qty,gym_qty\n2026-04-21T06:00+08:00,3,17\n", "shaA");
+    await appendRow(TOKEN, "2026-04-21T06:00+08:00,3,17\n");
+    const calls = (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls;
+    expect(calls).toHaveLength(1);
+  });
+
+  it("dedup still works when the stored last row has an empty trailing gym field", async () => {
+    // Locks the split-on-first-comma guard as schema-agnostic.
+    mockGet("timestamp_tw,pool_qty,gym_qty\n2026-04-21T06:30+08:00,5,\n", "shaA");
+    await appendRow(TOKEN, "2026-04-21T06:30+08:00,5,17\n");
     const calls = (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls;
     expect(calls).toHaveLength(1);
   });
 
   it("retries once on 409, succeeds on second attempt", async () => {
-    mockGet("timestamp_tw,use_qty\n", "shaA");
+    mockGet("timestamp_tw,pool_qty,gym_qty\n", "shaA");
     mockPut(409);
-    mockGet("timestamp_tw,use_qty\n", "shaB");
+    mockGet("timestamp_tw,pool_qty,gym_qty\n", "shaB");
     mockPut(200);
-    await appendRow(TOKEN, "2026-04-21T06:00+08:00,3\n");
+    await appendRow(TOKEN, "2026-04-21T06:00+08:00,3,17\n");
     const calls = (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls;
     expect(calls).toHaveLength(4);
   });
 
   it("retries up to 3 times total on persistent 409", async () => {
-    mockGet("timestamp_tw,use_qty\n", "shaA");
+    mockGet("timestamp_tw,pool_qty,gym_qty\n", "shaA");
     mockPut(409);
-    mockGet("timestamp_tw,use_qty\n", "shaB");
+    mockGet("timestamp_tw,pool_qty,gym_qty\n", "shaB");
     mockPut(409);
-    mockGet("timestamp_tw,use_qty\n", "shaC");
+    mockGet("timestamp_tw,pool_qty,gym_qty\n", "shaC");
     mockPut(409);
-    await expect(appendRow(TOKEN, "2026-04-21T06:00+08:00,3\n")).rejects.toMatchObject({
+    await expect(appendRow(TOKEN, "2026-04-21T06:00+08:00,3,17\n")).rejects.toMatchObject({
       status: 409,
     });
   });
 
   it("does not retry on non-conflict errors (500)", async () => {
-    mockGet("timestamp_tw,use_qty\n", "shaA");
+    mockGet("timestamp_tw,pool_qty,gym_qty\n", "shaA");
     mockPut(500);
-    await expect(appendRow(TOKEN, "2026-04-21T06:00+08:00,3\n")).rejects.toMatchObject({
+    await expect(appendRow(TOKEN, "2026-04-21T06:00+08:00,3,17\n")).rejects.toMatchObject({
       status: 500,
     });
     const calls = (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls;
@@ -202,11 +221,11 @@ describe("appendRow", () => {
   });
 
   it("also treats 422 as a conflict and retries", async () => {
-    mockGet("timestamp_tw,use_qty\n", "shaA");
+    mockGet("timestamp_tw,pool_qty,gym_qty\n", "shaA");
     mockPut(422);
-    mockGet("timestamp_tw,use_qty\n", "shaB");
+    mockGet("timestamp_tw,pool_qty,gym_qty\n", "shaB");
     mockPut(200);
-    await appendRow(TOKEN, "2026-04-21T06:00+08:00,3\n");
+    await appendRow(TOKEN, "2026-04-21T06:00+08:00,3,17\n");
     const calls = (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls;
     expect(calls).toHaveLength(4);
   });

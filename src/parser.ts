@@ -1,8 +1,13 @@
-import { VENUE_NAME } from "./constants.js";
+import { GYM_VENUE_NAME, POOL_VENUE_NAME } from "./constants.js";
 
 type Venue = { MachineName: string; MaxQty: number; UseQty: number };
 
-export function parsePoolCount(html: string): number {
+export interface VenueCounts {
+  pool: number;
+  gym: number | null;
+}
+
+export function parseVenueCounts(html: string): VenueCounts {
   const m = html.match(/this\.venueInfo\s*=\s*JSON\.parse\((".+?")\)/s);
   if (!m) {
     throw new Error(
@@ -10,12 +15,27 @@ export function parsePoolCount(html: string): number {
     );
   }
   const venues: Venue[] = JSON.parse(JSON.parse(m[1]));
-  const pool = venues.find((v) => v.MachineName === VENUE_NAME);
-  if (!pool) throw new Error(`venue '${VENUE_NAME}' not present in payload`);
+
+  const pool = venues.find((v) => v.MachineName === POOL_VENUE_NAME);
+  if (!pool) throw new Error(`venue '${POOL_VENUE_NAME}' not present in payload`);
   if (typeof pool.UseQty !== "number" || !Number.isFinite(pool.UseQty)) {
     throw new Error(
-      `venue '${VENUE_NAME}' UseQty is not a finite number: ${JSON.stringify(pool.UseQty)}`,
+      `venue '${POOL_VENUE_NAME}' UseQty is not a finite number: ${JSON.stringify(pool.UseQty)}`,
     );
   }
-  return Math.max(0, pool.UseQty);
+
+  // Gym is optional: a transient source-site outage on the gym entry must not
+  // kill pool data collection. Missing entry or non-finite UseQty → null,
+  // which the Worker serializes as an empty CSV field.
+  const gymEntry = venues.find((v) => v.MachineName === GYM_VENUE_NAME);
+  let gym: number | null = null;
+  if (
+    gymEntry &&
+    typeof gymEntry.UseQty === "number" &&
+    Number.isFinite(gymEntry.UseQty)
+  ) {
+    gym = Math.max(0, gymEntry.UseQty);
+  }
+
+  return { pool: Math.max(0, pool.UseQty), gym };
 }

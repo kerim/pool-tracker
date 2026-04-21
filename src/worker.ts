@@ -1,5 +1,5 @@
 import { PAGE_URL, UA } from "./constants.js";
-import { parsePoolCount } from "./parser.js";
+import { parseVenueCounts } from "./parser.js";
 import { appendRow, reportFailure } from "./github.js";
 import { taiwanIsoNow } from "./time.js";
 
@@ -32,8 +32,9 @@ export default {
   ): Promise<void> {
     try {
       const html = await fetchHtml();
-      const count = parsePoolCount(html);
-      const row = `${taiwanIsoNow()},${count}\n`;
+      const { pool, gym } = parseVenueCounts(html);
+      const gymField = gym === null ? "" : String(gym);
+      const row = `${taiwanIsoNow()},${pool},${gymField}\n`;
       await appendRow(env.GITHUB_TOKEN, row);
     } catch (e) {
       const msg = (e as Error).message ?? String(e);
