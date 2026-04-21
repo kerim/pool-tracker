@@ -1,0 +1,12 @@
+name = "pool-tracker"
+main = "src/worker.ts"
+compatibility_date = "2026-04-21"
+
+# Pool hours 06:00-22:00 Taiwan (UTC+8) = 22:00 UTC prev day through 14:00 UTC.
+# 33 polls/day total. Every 30 min, inclusive of opening and closing times.
+[triggers]
+crons = [
+  "0,30 22,23 * * *",   # 06:00-07:30 Taiwan (4 firings)
+  "0,30 0-13 * * *",    # 08:00-21:30 Taiwan (28 firings)
+  "0 14 * * *",         # 22:00 Taiwan (1 firing, last poll of day)
+]
