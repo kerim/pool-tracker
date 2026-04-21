@@ -1,5 +1,6 @@
 export function lastRowTimestamp(csv: string): string | null {
-  const trimmed = csv.replace(/\n+$/, "");
+  const normalized = csv.replace(/\r\n?/g, "\n");
+  const trimmed = normalized.replace(/\n+$/, "");
   const lines = trimmed.split("\n");
   if (lines.length < 2) return null;
   const last = lines[lines.length - 1];

@@ -25,4 +25,10 @@ describe("lastRowTimestamp", () => {
   it("returns null for a row with no comma", () => {
     expect(lastRowTimestamp("timestamp_tw,use_qty\nbogusrow\n")).toBeNull();
   });
+
+  it("normalizes CRLF line endings", () => {
+    const csv =
+      "timestamp_tw,use_qty\r\n2026-04-21T06:00+08:00,3\r\n2026-04-21T06:30+08:00,5\r\n";
+    expect(lastRowTimestamp(csv)).toBe("2026-04-21T06:30+08:00");
+  });
 });
