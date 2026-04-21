@@ -4,7 +4,11 @@ type Venue = { MachineName: string; MaxQty: number; UseQty: number };
 
 export function parsePoolCount(html: string): number {
   const m = html.match(/this\.venueInfo\s*=\s*JSON\.parse\((".+?")\)/s);
-  if (!m) throw new Error("venueInfo literal not found in page HTML");
+  if (!m) {
+    throw new Error(
+      `venueInfo literal not found in page HTML (length=${html.length}, head=${JSON.stringify(html.slice(0, 120))})`,
+    );
+  }
   const venues: Venue[] = JSON.parse(JSON.parse(m[1]));
   const pool = venues.find((v) => v.MachineName === VENUE_NAME);
   if (!pool) throw new Error(`venue '${VENUE_NAME}' not present in payload`);
