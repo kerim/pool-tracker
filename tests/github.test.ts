@@ -211,3 +211,44 @@ describe("appendRow", () => {
     expect(calls).toHaveLength(4);
   });
 });
+
+import { reportFailure } from "../src/github.js";
+
+describe("reportFailure", () => {
+  it("comments on the existing tracker issue when one exists", async () => {
+    mockFetchOnce({ status: 200, body: [{ number: 42 }] });
+    mockFetchOnce({ status: 201, body: {} });
+    await reportFailure(TOKEN, "boom");
+    const calls = (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls;
+    expect(calls).toHaveLength(2);
+    const commentCall = calls[1];
+    expect(commentCall[0]).toContain("/issues/42/comments");
+    const body = JSON.parse((commentCall[1] as RequestInit).body as string);
+    expect(body.body).toContain("boom");
+  });
+
+  it("opens a new labeled issue when no tracker issue is open", async () => {
+    mockFetchOnce({ status: 200, body: [] });
+    mockFetchOnce({ status: 201, body: { number: 1 } });
+    await reportFailure(TOKEN, "boom");
+    const calls = (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls;
+    const issueCall = calls[1];
+    const body = JSON.parse((issueCall[1] as RequestInit).body as string);
+    expect(body.title).toBe("[pool-tracker] scraper failure");
+    expect(body.labels).toEqual(["scraper-failure"]);
+    expect(body.body).toContain("boom");
+  });
+
+  it("never throws even if the list call fails", async () => {
+    mockFetchOnce({ status: 500, body: "oops" });
+    await expect(reportFailure(TOKEN, "boom")).resolves.toBeUndefined();
+  });
+
+  it("never throws even if a POST throws", async () => {
+    mockFetchOnce({ status: 200, body: [{ number: 42 }] });
+    (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      new Error("network down"),
+    );
+    await expect(reportFailure(TOKEN, "boom")).resolves.toBeUndefined();
+  });
+});

@@ -1,5 +1,6 @@
-import { CSV_HEADER, CSV_PATH, OWNER, REPO } from "./constants.js";
+import { CSV_HEADER, CSV_PATH, FAILURE_LABEL, ISSUE_TITLE, OWNER, REPO } from "./constants.js";
 import { lastRowTimestamp } from "./csv.js";
+import { taiwanIsoNow } from "./time.js";
 
 export const GH_CONTENTS = `https://api.github.com/repos/${OWNER}/${REPO}/contents/${CSV_PATH}`;
 
@@ -112,4 +113,46 @@ export async function appendRow(token: string, row: string): Promise<void> {
   throw lastErr ?? new Error("appendRow: exhausted retries");
 }
 
-// reportFailure added in Task 9.
+export async function reportFailure(
+  token: string,
+  errorMessage: string,
+): Promise<void> {
+  try {
+    const when = taiwanIsoNow();
+    // errorMessage already has GH response bodies truncated to 200 chars
+    // (by GhHttpError), so it's safe to put in a public issue.
+    const body = `\`${when}\`\n\n\`\`\`\n${errorMessage}\n\`\`\``;
+
+    const listUrl =
+      `https://api.github.com/repos/${OWNER}/${REPO}/issues?` +
+      `state=open&labels=${FAILURE_LABEL}&per_page=1`;
+    const list = await fetch(listUrl, { headers: ghHeaders(token) });
+    if (!list.ok) return;
+    const issues = (await list.json()) as { number: number }[];
+
+    if (issues.length > 0) {
+      await fetch(
+        `https://api.github.com/repos/${OWNER}/${REPO}/issues/${issues[0].number}/comments`,
+        {
+          method: "POST",
+          headers: { ...ghHeaders(token), "Content-Type": "application/json" },
+          body: JSON.stringify({ body }),
+        },
+      );
+    } else {
+      await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/issues`, {
+        method: "POST",
+        headers: { ...ghHeaders(token), "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: ISSUE_TITLE,
+          body,
+          labels: [FAILURE_LABEL],
+        }),
+      });
+    }
+  } catch {
+    // Truly best-effort. If alerting itself fails, the primary error is
+    // still in CF logs and Cron Trigger metrics (because `scheduled`
+    // re-throws). We never cascade alerting failures.
+  }
+}
