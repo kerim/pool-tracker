@@ -1,4 +1,5 @@
-import { CSV_PATH, OWNER, REPO } from "./constants.js";
+import { CSV_HEADER, CSV_PATH, OWNER, REPO } from "./constants.js";
+import { lastRowTimestamp } from "./csv.js";
 
 export const GH_CONTENTS = `https://api.github.com/repos/${OWNER}/${REPO}/contents/${CSV_PATH}`;
 
@@ -80,4 +81,35 @@ export async function ghPutCsv(
   );
 }
 
-// appendRow and reportFailure added in Tasks 8 and 9.
+export async function appendRow(token: string, row: string): Promise<void> {
+  const myTs = row.split(",")[0];
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) {
+      await new Promise((r) => setTimeout(r, 100 + Math.random() * 400));
+    }
+    const current = await ghGetCsv(token);
+    // Dedup guard: if a prior PUT succeeded server-side but we never saw
+    // the 200 (timeout/retry), don't append a second row for the same
+    // ISO-minute timestamp.
+    if (current && lastRowTimestamp(current.content) === myTs) return;
+    const content = current ? current.content + row : CSV_HEADER + row;
+    try {
+      await ghPutCsv(
+        token,
+        content,
+        current?.sha ?? null,
+        `data: ${row.trim()}`,
+      );
+      return;
+    } catch (e) {
+      lastErr = e;
+      const isConflict =
+        e instanceof GhHttpError && (e.status === 409 || e.status === 422);
+      if (!isConflict) throw e;
+    }
+  }
+  throw lastErr ?? new Error("appendRow: exhausted retries");
+}
+
+// reportFailure added in Task 9.
