@@ -1,5 +1,4 @@
 const CSV_URL = "./data/occupancy.csv";
-const REFRESH_MS = 5 * 60 * 1000;
 const HOUR_DOMAIN = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];
 
 const VENUES = [
@@ -172,4 +171,3 @@ async function refresh() {
 
 document.querySelectorAll('input[name="days"]').forEach(i => i.addEventListener("change", render));
 refresh();
-setInterval(refresh, REFRESH_MS);
